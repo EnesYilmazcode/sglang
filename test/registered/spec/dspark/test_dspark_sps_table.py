@@ -143,7 +143,7 @@ class TestProfileSpsTable(CustomTestCase):
 
 
 def _build_sps_cost_table_for(testcase, *, sps_table_path):
-    from sglang.srt.runtime_context import get_context, get_server_args
+    from sglang.srt.runtime_context import get_context
     from sglang.srt.speculative.dspark_components.dspark_planner import (
         build_sps_cost_table,
     )
@@ -157,9 +157,7 @@ def _build_sps_cost_table_for(testcase, *, sps_table_path):
     )
     override.install()
     testcase.addCleanup(override.restore)
-    return build_sps_cost_table(
-        server_args=get_server_args(), verify_num_draft_tokens=5
-    )
+    return build_sps_cost_table(verify_num_draft_tokens=5)
 
 
 class TestBuildSpsCostTableContract(CustomTestCase):
