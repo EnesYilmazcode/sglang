@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from sglang.srt.arg_groups.overrides import (
     declare_direct_writes,
     declare_resolution,
+    resolved_view,
     resolving_view,
 )
 
@@ -184,7 +185,6 @@ def handle_speculative_decoding(server_args: ServerArgs) -> None:
 
 def _handle_dflash(server_args: ServerArgs) -> None:
     cfg = resolving_view(server_args)
-    from sglang.srt.arg_groups.overrides import resolved_view
 
     if not (cfg.device.startswith("cuda") or cfg.device == "npu"):
         raise ValueError(
@@ -799,8 +799,6 @@ def _handle_eagle_family(server_args: ServerArgs) -> None:
                 "coins from the global RNG and is not batch-invariant."
             )
 
-        from sglang.srt.arg_groups.overrides import resolved_view
-
         if (
             resolved_view(server_args).enable_multi_layer_eagle
             and cfg.speculative_eagle_topk != 1
@@ -914,8 +912,6 @@ def _handle_ngram(server_args: ServerArgs) -> None:
         "The mixed chunked prefill are disabled because of "
         "using ngram speculative decoding."
     )
-
-    from sglang.srt.arg_groups.overrides import resolved_view
 
     view = resolved_view(server_args)
     if (

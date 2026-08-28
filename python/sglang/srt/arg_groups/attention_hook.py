@@ -8,7 +8,10 @@ import os
 from typing import Any
 
 from sglang.srt.arg_groups.overrides import (
+    _cutedsl_prefill_backend_fill,
+    _mla_kv_cache_dtype_checks,
     declare_resolution,
+    mamba_extra_buffer_of,
     resolved_view,
     resolving_view,
 )
@@ -122,14 +125,12 @@ def handle_attention_backend_compatibility(server_args: Any):
     # The TRT-LLM / tokenspeed MLA kv-dtype validations moved to the
     # resolution pipeline (arg_groups/overrides.py:
     # _mla_kv_cache_dtype_checks), invoked here at their legacy slot.
-    from sglang.srt.arg_groups.overrides import _mla_kv_cache_dtype_checks
 
     run_post_process_pass(server_args, _mla_kv_cache_dtype_checks)
 
     # The CuteDSL MLA validation + prefill fill moved to the resolution
     # pipeline (arg_groups/overrides.py: _cutedsl_prefill_backend_fill),
     # invoked here at its legacy slot.
-    from sglang.srt.arg_groups.overrides import _cutedsl_prefill_backend_fill
 
     run_post_process_pass(server_args, _cutedsl_prefill_backend_fill)
 
@@ -334,9 +335,6 @@ def handle_linear_attn_backend(server_args: Any):
                 "KDA, as the linear-attn decode backend; got "
                 f"--linear-attn-decode-backend={decode!r}."
             )
-        from sglang.srt.arg_groups.overrides import (
-            mamba_extra_buffer_of,
-        )
 
         if mamba_extra_buffer_of(resolved_view(server_args)):
             raise ValueError(

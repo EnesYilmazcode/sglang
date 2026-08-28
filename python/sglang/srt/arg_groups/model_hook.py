@@ -7,9 +7,14 @@ import logging
 from typing import Any
 
 from sglang.srt.arg_groups.overrides import (
+    _deepseek_spec_moe_resolution,
+    _enforce_disable_allreduce_fusion,
+    _flashinfer_allreduce_fusion_auto_enable,
+    collect_model_override_declarations,
     declare_resolution,
     resolved_view,
     resolving_view,
+    validate_declarations,
 )
 from sglang.srt.configs.embedding_model_spec import BCGPrefillPolicy
 from sglang.srt.configs.linear_attn_model_registry import get_linear_attn_spec_by_arch
@@ -106,10 +111,6 @@ def handle_model_specific_adjustments(server_args: Any):
     # server_args is never mutated — mid-resolution readers see the
     # declared values through resolved_view, runtime readers through the
     # flags tier.
-    from sglang.srt.arg_groups.overrides import (
-        collect_model_override_declarations,
-        validate_declarations,
-    )
 
     model_overrides = collect_model_override_declarations(
         model_arch, server_args, hf_config
@@ -323,9 +324,6 @@ def handle_model_specific_adjustments(server_args: Any):
             # resolution pipeline (arg_groups/overrides.py:
             # _deepseek_spec_moe_resolution), invoked here at its legacy
             # slot.
-            from sglang.srt.arg_groups.overrides import (
-                _deepseek_spec_moe_resolution,
-            )
 
             run_post_process_pass(server_args, _deepseek_spec_moe_resolution)
 
@@ -587,10 +585,6 @@ def handle_model_specific_adjustments(server_args: Any):
     # _flashinfer_allreduce_fusion_auto_enable /
     # _enforce_disable_allreduce_fusion), invoked here at their legacy
     # slots.
-    from sglang.srt.arg_groups.overrides import (
-        _enforce_disable_allreduce_fusion,
-        _flashinfer_allreduce_fusion_auto_enable,
-    )
 
     run_post_process_pass(server_args, _flashinfer_allreduce_fusion_auto_enable)
     run_post_process_pass(server_args, _enforce_disable_allreduce_fusion)

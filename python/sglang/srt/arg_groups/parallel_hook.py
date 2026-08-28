@@ -8,6 +8,8 @@ import os
 from typing import Any
 
 from sglang.srt.arg_groups.overrides import (
+    _dp_lm_head_validation,
+    _tp_lm_head_all_to_all_default,
     declare_resolution,
     resolved_view,
     resolving_view,
@@ -233,10 +235,6 @@ def handle_data_parallelism(server_args: Any):
 
     # Resolve the phase-aware TP LM-head default before validating the
     # resulting DP/TP LM-head configuration.
-    from sglang.srt.arg_groups.overrides import (
-        _dp_lm_head_validation,
-        _tp_lm_head_all_to_all_default,
-    )
 
     run_post_process_pass(server_args, _tp_lm_head_all_to_all_default)
     run_post_process_pass(server_args, _dp_lm_head_validation)
