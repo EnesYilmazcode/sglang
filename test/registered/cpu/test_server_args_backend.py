@@ -70,7 +70,7 @@ class TestServerArgsIBDeviceValidation(unittest.TestCase):
                 else real_listdir(path)
             ),
         ):
-            return validate_ib_devices(server_args, device_str)
+            return validate_ib_devices(device_str)
 
     def test_validate_ib_devices_accepts_comma_separated(self):
         self.assertEqual(
