@@ -38,6 +38,7 @@ import dataclasses
 import inspect
 import json
 import logging
+import math
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from sglang.srt.arg_groups.arg_utils import field_names, resolvable_fields
@@ -3174,3 +3175,100 @@ def model_config_of(server_args: Any):
             model_config.hf_config.architectures,
         )
     return model_config
+
+
+def post_capture_kv_sizing_planned(server_args: Any) -> bool:
+    """Whether the mem_fraction heuristic may skip the graph reserve; must be
+    False for any config the runtime won't post-capture-size, else it gets an
+    under-reserved fraction."""
+    from sglang.srt.arg_groups.overrides import model_config_of
+
+    cfg = resolving_view(server_args)
+    # `ModelRunner` writes a bool named `use_mla_backend` onto the record
+    # (see the FIXME there). At args time nothing has, and the answer comes
+    # from the model configuration instead.
+    from sglang.srt.arg_groups.overrides import use_mla_backend
+
+    runner_flag = getattr(server_args, "use_mla_backend", None)
+    mla_enabled = (
+        bool(runner_flag) if runner_flag is not None else use_mla_backend(server_args)
+    )
+    if not envs.SGLANG_ENABLE_POST_CAPTURE_KV_SIZING.get():
+        return False
+    if cfg.device != "cuda":
+        return False
+    if cfg.dcp_size != 1:
+        return False
+    if mla_enabled:
+        return False
+    if cfg.kv_cache_dtype == "fp4_e2m1":
+        return False
+    if cfg.prefill_only_disable_kv_cache:
+        return False
+    if cfg.enable_memory_saver:
+        return False
+    if envs.SGLANG_MOONCAKE_CUSTOM_MEM_POOL.get() is not None:
+        return False
+
+    if (
+        cfg.disaggregation_mode != "prefill"
+        and cfg.cuda_graph_config.decode.backend == Backend.DISABLED
+    ):
+        return False
+
+    if cfg.disaggregation_mode != "decode":
+        prefill_cfg = cfg.cuda_graph_config.prefill
+        # We can only skip eager activation headroom when the largest
+        # prefill forward batch size is already graph-captured. Otherwise,
+        # an eager forward will need more memory and lead to OOM.
+        if (
+            prefill_cfg.backend == Backend.DISABLED
+            or cfg.chunked_prefill_size <= 0
+            or max_prefill_buffer_tokens(server_args) > max(prefill_cfg.bs or (0,))
+        ):
+            return False
+
+    from sglang.srt.configs.model_config import is_deepseek_v4, is_minimax_sparse
+
+    hf_config = model_config_of(server_args).hf_config
+    if is_deepseek_v4(hf_config) or is_minimax_sparse(hf_config):
+        return False
+
+    return True
+
+
+def cutedsl_moe_max_num_tokens(server_args: Any) -> int:
+    """Largest number of tokens a single forward routes through a CuteDSL
+    MoE layer on one (DP) rank. Single source of truth for both the
+    standard-allgather wrapper buffers and the FlashInfer A2A dispatcher
+    budget. Max over the prefill (max_prefill_tokens), piecewise-prefill
+    capture, and decode/verify bounds; num_tokens_per_req is
+    speculative_num_draft_tokens under speculative decoding, else 1.
+    """
+    cfg = resolving_view(server_args)
+    if cfg.speculative_algorithm:
+        num_tokens_per_req = cfg.speculative_num_draft_tokens or 1
+    else:
+        num_tokens_per_req = 1
+    prefill_tokens = cfg.max_prefill_tokens
+    cg_config = cfg.cuda_graph_config
+    if cg_config is not None and cg_config.prefill.backend == Backend.TC_PIECEWISE:
+        prefill_tokens = max(prefill_tokens, cg_config.prefill.max_bs or 0)
+    decode_max_bs = (cg_config.decode.max_bs if cg_config is not None else 0) or 0
+    decode_tokens = decode_max_bs * num_tokens_per_req
+    return max(prefill_tokens, decode_tokens)
+
+
+def max_prefill_buffer_tokens(server_args: Any) -> int:
+    """Prefill-buffer ceiling: chunked_prefill_size, except PP dynamic
+    chunking can grow chunks toward max_prefill_tokens and probe at 1.25x."""
+    cfg = resolving_view(server_args)
+    chunked = (
+        cfg.chunked_prefill_size
+        if cfg.chunked_prefill_size and cfg.chunked_prefill_size > 0
+        else 0
+    )
+    tokens = chunked
+    if cfg.enable_dynamic_chunking and cfg.pp_size > 1 and chunked:
+        tokens = max(tokens, cfg.max_prefill_tokens or 0, math.ceil(chunked * 1.25))
+    return tokens

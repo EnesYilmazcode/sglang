@@ -2088,6 +2088,13 @@ def _wait_for_gpu_idle_in_ci(
             pass
 
 
+# Names `ModelRunner` writes onto the record at init that are not members of it.
+# The kits set them the same way the runner does, and `hasattr` cannot see them:
+# `use_mla_backend` is a bool the runner assigns, and the pre-publish answer now
+# comes from `overrides.use_mla_backend(record)` rather than from a method here.
+_RUNNER_WRITTEN_NAMES = frozenset({"use_mla_backend"})
+
+
 def server_args_variant(server_args, **fields):
     """A modified deep copy of a config, for a test double whose fixture
     differs from the (possibly published, read-only) config it starts from.
@@ -2101,7 +2108,9 @@ def server_args_variant(server_args, **fields):
     unknown = {
         name
         for name in fields
-        if name not in cls.__dataclass_fields__ and not hasattr(cls, name)
+        if name not in cls.__dataclass_fields__
+        and not hasattr(cls, name)
+        and name not in _RUNNER_WRITTEN_NAMES
     }
     if unknown:
         raise ValueError(f"unknown ServerArgs field(s): {sorted(unknown)}")

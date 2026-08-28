@@ -50,8 +50,13 @@ def test_packed_speculative_extend_is_limited_to_pd_prefill_target(mode, error):
 
 def test_chunked_prefill_disabled_uses_legacy_token_ceiling():
     model_runner = SimpleNamespace(
+        # `max_prefill_buffer_tokens` is a function of the record now, so the
+        # stand-in carries the fields it reads rather than stubbing the answer:
+        # chunked prefill disabled is what makes it fall back to the ceiling.
         server_args=SimpleNamespace(
-            max_prefill_buffer_tokens=Mock(return_value=0),
+            chunked_prefill_size=0,
+            enable_dynamic_chunking=False,
+            pp_size=1,
             max_prefill_tokens=32768,
         ),
         is_generation=True,

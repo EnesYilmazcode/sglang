@@ -1669,7 +1669,7 @@ def max_prefill_buffer_tokens() -> int:
 
     Every input is a published leaf (``schedule`` plus the configured PP size),
     so this derives from the bags and follows a post-publish override;
-    ``ServerArgs.max_prefill_buffer_tokens`` is the pre-publish equivalent and
+    ``overrides.max_prefill_buffer_tokens`` is the pre-publish equivalent and
     ``TestDerivedPredicatesAgreeAcrossTiers`` pins the two equal.
     """
     import math
@@ -1819,7 +1819,7 @@ def cutedsl_moe_max_num_tokens() -> int:
 
     Every input is a published leaf (``spec``, ``schedule``, ``exec.graph``), so
     this derives from the bags and follows a post-publish override;
-    ``ServerArgs.cutedsl_moe_max_num_tokens`` is the pre-publish equivalent the
+    ``overrides.cutedsl_moe_max_num_tokens`` is the pre-publish equivalent the
     resolution pipeline uses. Max over the prefill bound, the piecewise-prefill
     capture, and the decode/verify bound.
     """

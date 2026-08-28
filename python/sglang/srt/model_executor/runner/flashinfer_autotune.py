@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 import torch
 
+from sglang.srt.arg_groups.overrides import max_prefill_buffer_tokens
 from sglang.srt.environ import envs
 from sglang.srt.model_executor.forward_batch_info import ForwardMode
 from sglang.srt.runtime_context import (
@@ -342,8 +343,10 @@ def maybe_flashinfer_autotune_extend(
     mr = runner.model_runner
     # Prefer the per-rank scheduler buffer while preserving the legacy ceiling
     # when chunked prefill is disabled.
+    # The runner's own record, not the process global: a draft runner carries
+    # its own `ServerArgs` clone and would otherwise be sized from the target's.
     num_tokens = (
-        mr.server_args.max_prefill_buffer_tokens() or mr.server_args.max_prefill_tokens
+        max_prefill_buffer_tokens(mr.server_args) or mr.server_args.max_prefill_tokens
     )
     if num_tokens <= (decode_num_tokens or 0):
         return  # decode-shaped autotune already covered these buckets
